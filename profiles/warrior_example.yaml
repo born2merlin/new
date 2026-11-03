@@ -1,0 +1,51 @@
+# Example: melee warrior (archetype demo for the close_and_attack strategy).
+# The engine walks or dashes into range_px of the nearest monster, faces it,
+# then attacks.
+
+name: Example Warrior
+class_archetype: warrior (melee)
+resource: mp
+
+attack:
+  strategy: close_and_attack
+  range: melee
+  range_px: 120
+  direction: facing
+  skills:
+    - name: Slash Blast            # short AoE
+      key: a
+      cast_time_s: 0.6
+      priority: 1
+      min_targets: 2
+    - name: Power Strike
+      key: s
+      cast_time_s: 0.5
+      priority: 2
+
+buffs:
+  - name: Iron Body
+    key: "1"
+    recast_interval_s: 170
+  - name: Weapon Booster
+    key: "2"
+    recast_interval_s: 170
+
+movement:
+  walk: { left: left, right: right, up: up, down: down }
+  jump_key: alt
+  skills:
+    - name: Dash
+      type: dash
+      key: d
+      distance_px: 180
+      cooldown_s: 1.0
+
+potions:
+  hp_key: delete
+  mp_key: end
+  hp_threshold: 0.6                # melee takes more hits; pot earlier
+  mp_threshold: 0.2
+
+loot:
+  mode: key_sweep
+  key: z

@@ -1,0 +1,56 @@
+# Level 38 Ice/Lightning Mage (GMS).
+#
+# Keys are TODO on purpose: fill them in with
+#   mapbot calibrate keys --profile profiles/mage_il_lv38.yaml
+# Skill names, cast times and buff durations are starting guesses.
+# Check each one against the in-game skill tooltip.
+
+name: IL Mage Lv38
+class_archetype: mage (ice/lightning)
+resource: mp
+
+attack:
+  strategy: stand_and_spam         # switch to teleport_hop once tuned (Phase 6)
+  range: ranged
+  range_px: 350
+  direction: facing
+  skills:
+    - name: Thunder Bolt           # AoE: preferred when several monsters are in range
+      key: TODO
+      cast_time_s: 0.7
+      priority: 1
+      min_targets: 2
+    - name: Cold Beam              # single target fallback
+      key: TODO
+      cast_time_s: 0.7
+      priority: 2
+      min_targets: 1
+
+buffs:
+  - name: Magic Guard
+    key: TODO
+    recast_interval_s: 550         # verify duration in-game
+  - name: Meditation
+    key: TODO
+    recast_interval_s: 170         # verify duration in-game
+
+movement:
+  walk: { left: left, right: right, up: up, down: down }
+  jump_key: TODO
+  skills:
+    - name: Teleport
+      type: teleport
+      key: TODO
+      distance_px: 150
+      cooldown_s: 0.3
+
+potions:
+  hp_key: TODO
+  mp_key: TODO
+  hp_threshold: 0.5
+  mp_threshold: 0.35
+  cooldown_s: 1.0
+
+loot:
+  mode: key_sweep
+  key: TODO

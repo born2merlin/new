@@ -1,0 +1,42 @@
+# =============================================================================
+# mapbot MAP config TEMPLATE
+#
+# Copy this folder to maps/<map_id>/ and fill it with the calibration tool
+# (Phases 1-2). Coordinates are pixels relative to the game window's client
+# area, so moving the window doesn't break them. Templates go in:
+#   maps/<map_id>/templates/monsters/*.png
+#   maps/<map_id>/templates/loot/*.png
+#   maps/<map_id>/templates/player/*.png   (your name tag)
+#   maps/<map_id>/templates/alerts/*.png   (death dialog, rune prompt, ...)
+#
+# 'mapbot run' refuses to start until every field below is calibrated.
+# =============================================================================
+
+name: My Farming Map
+window_title: MapleStory
+
+# Client size this map was calibrated at. The bot refuses to run if the
+# window size differs, instead of guessing a rescale.
+calibrated_resolution: null        # e.g. { width: 1920, height: 1080 }
+
+rois:                              # set with: mapbot calibrate roi
+  minimap: null                    # e.g. { x: 8, y: 30, w: 220, h: 140 }
+  hp_bar: null
+  mp_bar: null
+  play_area: null                  # region monsters are searched in (exclude UI)
+
+colors:                            # set with: mapbot calibrate colors
+  player_dot: null                 # e.g. { lower: [20, 150, 180], upper: [35, 255, 255] }
+  hp_fill: null
+  mp_fill: null
+
+patrol: null                       # set with: mapbot calibrate bounds
+                                   # e.g. { left_x: 40, right_x: 180 }  (minimap x)
+
+detection:
+  monster_detector: template       # template | color
+  monster_threshold: 0.75
+  monster_color: null              # required when monster_detector: color
+  loot_threshold: 0.8
+  nametag_threshold: 0.8
+  alert_threshold: 0.85

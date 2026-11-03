@@ -1,0 +1,48 @@
+# Example: ranged bowman (archetype demo).
+# Same engine and strategy as the Mage. Only the keys, range and resource differ.
+
+name: Example Bowman
+class_archetype: bowman (ranged)
+resource: none                     # set to 'ammo' if your arrows are consumed
+
+attack:
+  strategy: stand_and_spam
+  range: ranged
+  range_px: 450
+  direction: facing
+  skills:
+    - name: Arrow Bomb             # AoE shot
+      key: a
+      cast_time_s: 0.6
+      priority: 1
+      min_targets: 2
+    - name: Arrow Blow             # single target, hold to keep firing
+      key: s
+      cast_time_s: 0.5
+      priority: 2
+      hold: true
+
+buffs:
+  - name: Bow Booster
+    key: "1"
+    recast_interval_s: 180
+  - name: Soul Arrow
+    key: "2"
+    recast_interval_s: 280
+
+movement:
+  walk: { left: left, right: right, up: up, down: down }
+  jump_key: alt
+  skills:
+    - name: Double Jump
+      type: double_jump
+      key: d
+      distance_px: 220
+
+potions:
+  hp_key: delete
+  hp_threshold: 0.5
+
+loot:
+  mode: key_sweep
+  key: z

@@ -1,0 +1,20 @@
+# Global bot settings (safety + loop). All fields are optional; these are defaults.
+
+loop_hz: 12                        # decisions per second
+capture_fps: 30
+capture_backend: dxcam             # dxcam | mss
+
+hotkeys:
+  pause_toggle: f12                # pause / resume
+  hard_stop: ctrl+f12              # release all keys and exit
+
+watchdog:                          # each limit trips a STOP (focus loss pauses first)
+  no_monsters_s: 60
+  no_player_dot_s: 10
+  out_of_bounds_s: 20
+  focus_lost_stop_s: 30
+  hp_zero_s: 1.0
+  frozen_frame_s: 5
+  max_runtime_min: null            # e.g. 120 to stop after 2 hours
+
+log_dir: logs

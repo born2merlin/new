@@ -1,0 +1,75 @@
+# =============================================================================
+# mapbot class profile TEMPLATE
+#
+# Copy this file to profiles/<your_class>.yaml and fill it in.
+# Check it with:      mapbot validate profiles/<your_class>.yaml
+# Fill TODO keys with: mapbot calibrate keys --profile profiles/<your_class>.yaml
+#
+# A profile describes HOW a class plays. It contains nothing about the map;
+# that lives in maps/<map_id>/map.yaml. Unknown fields are rejected, so typos
+# are caught instead of silently ignored.
+#
+# KEY NAMES: a-z, 0-9, f1-f12, num0-num9, shift, ctrl, alt, space, enter, tab,
+# esc, backspace, insert, delete, home, end, pageup, pagedown, left, right,
+# up, down, ` - = [ ] \ ; ' , . /    -- or TODO as a placeholder.
+# 'mapbot run' refuses to start while any key is TODO.
+# =============================================================================
+
+name: My Character                 # required, free text
+class_archetype: ""                # informational only; the engine never reads it
+
+# What the class spends to attack:
+#   mp   -> requires potions.mp_key; RECOVER triggers on mp_threshold
+#   ammo -> arrows/stars/bullets (watchdog warns when you run out, later phase)
+#   none -> nothing to track
+resource: mp
+
+attack:
+  # How the engine approaches fights:
+  #   stand_and_spam   - stay put, face the side with more monsters, cast
+  #   close_and_attack - walk toward the nearest monster until in range, attack
+  #   teleport_hop     - teleport toward distant monsters, then stand and spam
+  #                      (requires a movement skill with type: teleport)
+  strategy: stand_and_spam
+  range: ranged                    # melee | short | ranged
+  range_px: 400                    # horizontal reach in screen pixels
+  direction: facing                # facing (fires where you face) | targeted (auto-aims)
+  skills:                          # at least one. Lower priority number = preferred
+    - name: Main Attack
+      key: TODO
+      cast_time_s: 0.6             # how long the cast locks your character
+      cooldown_s: 0                # 0 = no cooldown
+      priority: 1
+      hold: false                  # true = hold the key instead of tapping
+      min_targets: 1               # only use when at least N monsters are in range
+
+buffs:                             # optional; re-cast every recast_interval_s
+  - name: Example Buff
+    key: TODO
+    recast_interval_s: 180         # set a bit below the real duration
+    cast_time_s: 0.8
+
+movement:
+  walk: { left: left, right: right, up: up, down: down }
+  jump_key: alt                    # optional
+  skills:                          # optional
+    # type: teleport | flash_jump | double_jump | dash
+    - name: Example Movement
+      type: double_jump
+      key: TODO
+      distance_px: 200             # roughly how far one use moves you
+      cooldown_s: 0
+
+potions:
+  hp_key: TODO                     # optional, but strongly recommended
+  mp_key: TODO                     # required when resource: mp
+  hp_threshold: 0.5                # pot when HP falls below 50%
+  mp_threshold: 0.3
+  cooldown_s: 1.0                  # minimum time between potion presses
+
+loot:
+  # key_sweep - walk over drops and press loot.key
+  # pet       - your pet auto-loots; the bot does nothing special
+  # none      - ignore drops
+  mode: key_sweep
+  key: z
