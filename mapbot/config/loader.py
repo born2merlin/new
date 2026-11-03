@@ -10,12 +10,13 @@ from typing import Any, TypeVar
 import yaml
 from pydantic import BaseModel, ValidationError
 
+from ..errors import UserError
 from .schema import BotSettings, MapConfig, Profile
 
 M = TypeVar("M", bound=BaseModel)
 
 
-class ConfigError(Exception):
+class ConfigError(UserError):
     """Raised when a config file cannot be loaded. ``str()`` is user-facing."""
 
     def __init__(self, path: Path, problems: list[str]):

@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
 from pathlib import Path
 
 from .config.loader import ConfigError, detect_kind, load_map, load_profile, load_settings
+from .errors import UserError
 
 
 def _cmd_validate(args: argparse.Namespace) -> int:
@@ -47,8 +49,72 @@ def _not_yet(phase: int):
     return run
 
 
+def _calibrate_dispatch(args: argparse.Namespace) -> int:
+    # Imported lazily so 'validate' works without OpenCV installed.
+    from .calibrate import commands
+
+    settings = load_settings(args.settings) if args.settings else None
+    if getattr(args, "backend", None) is None:
+        args.backend = settings.capture_backend if settings else "dxcam"
+    if getattr(args, "fps", None) is None:
+        args.fps = settings.capture_fps if settings else 30
+    return getattr(commands, f"cmd_{args.calib}")(args)
+
+
+def _add_calibrate(sub) -> None:
+    from .calibrate.targets import COLOR_TARGETS, ROI_TARGETS
+
+    c = sub.add_parser("calibrate", help="calibration helpers for a map and profile")
+    csub = c.add_subparsers(dest="calib", required=True)
+
+    def common(sp, *, live: bool = True, image: bool = False, map_required: bool = True):
+        sp.add_argument("--map", required=map_required,
+                        help="map id (maps/<id>/map.yaml, created if missing) or a map.yaml path")
+        if live:
+            sp.add_argument("--title", help="game window title (default: map's window_title)")
+            sp.add_argument("--backend", choices=["dxcam", "mss"],
+                            help="capture backend (default: settings.yaml)")
+        if image:
+            sp.add_argument("--image", help="calibrate from a saved screenshot instead of live")
+            sp.add_argument("--delay", type=float, default=3,
+                            help="seconds to wait before a live capture (default 3)")
+        sp.set_defaults(func=_calibrate_dispatch)
+
+    w = csub.add_parser("window", help="find the game window, check DPI/capture rate, save a screenshot")
+    common(w, map_required=False)
+    w.add_argument("--out", help="where to save the screenshot (default maps/<id>/reference.png)")
+    w.add_argument("--fps", type=int, help="target capture FPS to compare against")
+
+    r = csub.add_parser("roi", help="drag rectangles for minimap, HP/MP bars and play area")
+    common(r, image=True)
+    r.add_argument("--only", nargs="+", choices=list(ROI_TARGETS), help="only these ROIs")
+
+    k = csub.add_parser("colors", help="click pixels to set the player-dot and HP/MP fill colors")
+    common(k, image=True)
+    k.add_argument("--only", nargs="+", choices=list(COLOR_TARGETS), help="only these colors")
+
+    rec = csub.add_parser("record", help="save frames from the live game for offline tests/replay")
+    common(rec)
+    rec.add_argument("--seconds", type=float, default=30)
+    rec.add_argument("--fps", type=float, default=5, help="frames saved per second (default 5)")
+    rec.add_argument("--out", help="output folder (default frames/<map>/<timestamp>)")
+
+    for name, phase, helptext in [
+        ("template", 2, "capture monster/loot/name-tag/alert templates"),
+        ("bounds", 2, "record patrol bounds by walking to each edge"),
+        ("check", 2, "live perception preview with no input"),
+        ("keys", 3, "test and set profile keybinds"),
+    ]:
+        s = csub.add_parser(name, help=f"{helptext} [Phase {phase}]")
+        s.add_argument("rest", nargs=argparse.REMAINDER)
+        s.set_defaults(func=_not_yet(phase), command=f"calibrate {name}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="mapbot", description=__doc__)
+    p.add_argument("--settings", default="settings.yaml" if Path("settings.yaml").is_file() else None,
+                   help="bot settings file (default: ./settings.yaml if present)")
+    p.add_argument("-v", "--verbose", action="store_true", help="debug logging")
     sub = p.add_subparsers(dest="command", required=True)
 
     v = sub.add_parser("validate", help="check profile / map / settings YAML files")
@@ -63,8 +129,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     v.set_defaults(func=_cmd_validate)
 
+    _add_calibrate(sub)
+
     for name, phase, helptext in [
-        ("calibrate", 1, "calibration helpers (window, roi, colors, template, bounds, keys, check)"),
         ("run", 4, "run the bot"),
         ("replay", 5, "run the decision loop over saved frames with no input"),
         ("inspect", 2, "annotate saved frames with what perception sees"),
@@ -77,7 +144,15 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    return args.func(args)
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.INFO,
+        format="%(levelname)s %(name)s: %(message)s",
+    )
+    try:
+        return args.func(args)
+    except UserError as e:  # anything else is a bug and keeps its traceback
+        print(f"error: {e}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

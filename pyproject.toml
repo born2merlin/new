@@ -10,18 +10,18 @@ requires-python = ">=3.11"
 dependencies = [
     "pydantic>=2.5",
     "PyYAML>=6.0",
+    "ruamel.yaml>=0.18",  # comment-preserving writes from the calibration tool
 ]
 
 [project.optional-dependencies]
-# Runtime pieces used from Phase 1 on (Windows only for capture/input).
+# Capture, vision and calibration GUI (window/input APIs are called via ctypes).
 runtime = [
     "numpy>=1.26",
-    "opencv-python>=4.9",
+    "opencv-python>=4.9",  # needs the GUI build, not opencv-python-headless
     "mss>=9.0",
     "dxcam>=0.0.5; sys_platform == 'win32'",
-    "pydirectinput>=1.0.4; sys_platform == 'win32'",
-    "pywin32>=306; sys_platform == 'win32'",
-    "keyboard>=0.13.5; sys_platform == 'win32'",
+    "pydirectinput>=1.0.4; sys_platform == 'win32'",  # Phase 3
+    "keyboard>=0.13.5; sys_platform == 'win32'",      # Phase 3
 ]
 dev = ["pytest>=8"]
 
@@ -33,3 +33,4 @@ include = ["mapbot*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["tests"]

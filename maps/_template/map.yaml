@@ -25,6 +25,8 @@ rois:                              # set with: mapbot calibrate roi
   mp_bar: null
   play_area: null                  # region monsters are searched in (exclude UI)
 
+# OpenCV HSV: H 0-179, S/V 0-255. If lower H > upper H the hue range wraps
+# through 0, which is how red (the HP bar) is expressed.
 colors:                            # set with: mapbot calibrate colors
   player_dot: null                 # e.g. { lower: [20, 150, 180], upper: [35, 255, 255] }
   hp_fill: null

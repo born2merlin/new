@@ -250,7 +250,11 @@ class Rect(_Strict):
 
 
 class HSVRange(_Strict):
-    """OpenCV HSV range: H in 0-179, S/V in 0-255."""
+    """OpenCV HSV range: H in 0-179, S/V in 0-255.
+
+    Hue is circular: if ``lower`` hue > ``upper`` hue the range wraps through
+    0 (e.g. red: lower H 170, upper H 8). S and V must satisfy lower <= upper.
+    """
 
     lower: tuple[int, int, int]
     upper: tuple[int, int, int]
@@ -265,9 +269,16 @@ class HSVRange(_Strict):
 
     @model_validator(mode="after")
     def _ordered(self) -> "HSVRange":
-        if any(lo > hi for lo, hi in zip(self.lower, self.upper)):
-            raise ValueError(f"lower {list(self.lower)} must be <= upper {list(self.upper)}")
+        if any(lo > hi for lo, hi in zip(self.lower[1:], self.upper[1:])):
+            raise ValueError(
+                f"lower {list(self.lower)} must be <= upper {list(self.upper)} "
+                f"for S and V (only hue may wrap around)"
+            )
         return self
+
+    @property
+    def hue_wraps(self) -> bool:
+        return self.lower[0] > self.upper[0]
 
 
 class Resolution(_Strict):

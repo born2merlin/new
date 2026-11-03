@@ -9,8 +9,8 @@ A class-agnostic farming bot for a single MapleStory map. It works from **screen
 | Phase | Scope | Status |
 |---|---|---|
 | 0 | Skeleton, profile/map/settings schema, validation, example profiles | ✅ done |
-| 1 | Window detection, capture, ROI/color calibration | next |
-| 2 | Perception (minimap, HP/MP, monsters) + offline fixtures | |
+| 1 | Window detection, capture, ROI/color calibration, frame recording | ✅ done (verify on Windows) |
+| 2 | Perception (minimap, HP/MP, monsters) + offline fixtures | next |
 | 3 | Keyboard input, kill switch, focus pause, key calibration | |
 | 4 | Mage MVP: patrol / attack / buff / recover + watchdog | |
 | 5 | Loot, debug overlay, JSONL log, replay | |
@@ -37,6 +37,23 @@ The first command checks every file and lists `TODO` keys as warnings. `--strict
 
 ```bash
 pytest
+```
+
+## Phase 1: calibrate a map
+
+See [docs/CALIBRATION.md](docs/CALIBRATION.md). In short:
+
+```bash
+mapbot calibrate window --map my_map
+```
+```bash
+mapbot calibrate roi --map my_map
+```
+```bash
+mapbot calibrate colors --map my_map
+```
+```bash
+mapbot calibrate record --map my_map --seconds 60
 ```
 
 ## Layout

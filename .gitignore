@@ -6,3 +6,5 @@ venv/
 logs/
 frames/
 .pytest_cache/
+maps/*/reference.png
+maps/*/calib_roi.png
