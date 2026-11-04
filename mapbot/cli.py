@@ -61,8 +61,14 @@ def _calibrate_dispatch(args: argparse.Namespace) -> int:
     return getattr(commands, f"cmd_{args.calib}")(args)
 
 
+def _inspect(args: argparse.Namespace) -> int:
+    from .inspect_frames import cmd_inspect
+
+    return cmd_inspect(args)
+
+
 def _add_calibrate(sub) -> None:
-    from .calibrate.targets import COLOR_TARGETS, ROI_TARGETS
+    from .calibrate.targets import COLOR_TARGETS, ROI_TARGETS, TEMPLATE_KINDS
 
     c = sub.add_parser("calibrate", help="calibration helpers for a map and profile")
     csub = c.add_subparsers(dest="calib", required=True)
@@ -99,10 +105,27 @@ def _add_calibrate(sub) -> None:
     rec.add_argument("--fps", type=float, default=5, help="frames saved per second (default 5)")
     rec.add_argument("--out", help="output folder (default frames/<map>/<timestamp>)")
 
+    t = csub.add_parser("template", help="drag a box to save a monster/loot/name-tag/alert template")
+    common(t, image=True)
+    t.add_argument("--kind", required=True, choices=TEMPLATE_KINDS,
+                   help="monsters | loot | player (your name tag) | alerts (death_*, rune_*, dialog_*)")
+    t.add_argument("--name", required=True, help="file name without .png, e.g. orange_mush_1")
+    t.add_argument("--force", action="store_true", help="overwrite an existing template")
+    t.add_argument("--set-threshold", action="store_true",
+                   help="write the suggested threshold (player/alerts only)")
+
+    b = csub.add_parser("bounds", help="set patrol bounds from the minimap dot position")
+    common(b, image=True)
+    b.add_argument("--set", choices=["left", "right"], help="the edge you are standing at now")
+    b.add_argument("--frames", help="folder recorded while walking edge to edge (sets both)")
+    b.add_argument("--inset", type=int, default=5, help="minimap px to stay inside each edge (default 5)")
+
+    ch = csub.add_parser("check", help="preview perception live or over saved frames (no input)")
+    common(ch)
+    ch.add_argument("--frames", help="preview a recorded folder instead of the live game")
+    ch.add_argument("--fps", type=float, default=10, help="playback speed for --frames (default 10)")
+
     for name, phase, helptext in [
-        ("template", 2, "capture monster/loot/name-tag/alert templates"),
-        ("bounds", 2, "record patrol bounds by walking to each edge"),
-        ("check", 2, "live perception preview with no input"),
         ("keys", 3, "test and set profile keybinds"),
     ]:
         s = csub.add_parser(name, help=f"{helptext} [Phase {phase}]")
@@ -131,10 +154,19 @@ def build_parser() -> argparse.ArgumentParser:
 
     _add_calibrate(sub)
 
+    i = sub.add_parser("inspect", help="run perception over saved frames; write annotated images")
+    i.add_argument("target", help="an image or a folder of frames (e.g. from 'calibrate record')")
+    i.add_argument("--map", required=True, help="map id or map.yaml path")
+    i.add_argument("--out", help="output folder (default <target>_inspect next to it)")
+    i.add_argument("--no-images", action="store_true", help="only write perception.jsonl")
+    i.add_argument("--write-labels", action="store_true",
+                   help="write a draft labels.json into the frames folder for offline tests")
+    i.add_argument("--force", action="store_true", help="overwrite an existing labels.json")
+    i.set_defaults(func=_inspect)
+
     for name, phase, helptext in [
         ("run", 4, "run the bot"),
         ("replay", 5, "run the decision loop over saved frames with no input"),
-        ("inspect", 2, "annotate saved frames with what perception sees"),
     ]:
         s = sub.add_parser(name, help=f"{helptext} [Phase {phase}]")
         s.add_argument("rest", nargs=argparse.REMAINDER)

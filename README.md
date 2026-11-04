@@ -10,8 +10,8 @@ A class-agnostic farming bot for a single MapleStory map. It works from **screen
 |---|---|---|
 | 0 | Skeleton, profile/map/settings schema, validation, example profiles | ✅ done |
 | 1 | Window detection, capture, ROI/color calibration, frame recording | ✅ done (verify on Windows) |
-| 2 | Perception (minimap, HP/MP, monsters) + offline fixtures | next |
-| 3 | Keyboard input, kill switch, focus pause, key calibration | |
+| 2 | Perception (minimap, HP/MP, name tag, monsters, loot, alerts) + offline fixtures | ✅ done (verify on your map) |
+| 3 | Keyboard input, kill switch, focus pause, key calibration | next |
 | 4 | Mage MVP: patrol / attack / buff / recover + watchdog | |
 | 5 | Loot, debug overlay, JSONL log, replay | |
 | 6 | teleport_hop, close_and_attack, bowman, docs | |
@@ -56,9 +56,33 @@ mapbot calibrate colors --map my_map
 mapbot calibrate record --map my_map --seconds 60
 ```
 
+## Phase 2: templates, bounds, and checking perception
+
+```bash
+mapbot calibrate template --map my_map --kind monsters --name mob_1
+```
+```bash
+mapbot calibrate template --map my_map --kind player --name nametag --set-threshold
+```
+```bash
+mapbot calibrate bounds --map my_map --frames frames/my_map/<timestamp>
+```
+```bash
+mapbot calibrate check --map my_map
+```
+```bash
+mapbot inspect frames/my_map/<timestamp> --map my_map
+```
+
+`check` and `inspect` send no input. Steps 5–8 of [docs/CALIBRATION.md](docs/CALIBRATION.md) explain each one and how to turn recordings into local test fixtures.
+
 ## Layout
 
 - `profiles/`: one YAML per class. `_template.yaml` documents every field. Shipped: `mage_il_lv38.yaml` (keys TODO), `bowman_example.yaml`, `warrior_example.yaml`.
 - `maps/<map_id>/map.yaml`: per-map ROIs, colors, patrol bounds and detection thresholds, plus template PNGs. Start from `maps/_template/`.
 - `settings.yaml`: loop rate, capture backend, kill-switch hotkeys (F12 pause, Ctrl+F12 stop), watchdog limits.
 - `mapbot/config/`: pydantic schema and loader with readable errors.
+- `mapbot/capture/`: window detection, dxcam/mss capture, recording.
+- `mapbot/perception/`: detectors and the `Perceiver` that turns a frame into a `Perception` snapshot.
+- `mapbot/calibrate/`: calibration commands and GUI helpers. `mapbot/debug/annotate.py` draws what perception sees.
+- `tests/fixtures/local/`: your own labeled screenshots (git-ignored; see the calibration guide).

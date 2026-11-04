@@ -1,4 +1,4 @@
-"""``mapbot calibrate <subcommand>`` implementations (Phase 1: window, roi, colors, record)."""
+"""``mapbot calibrate <subcommand>`` implementations."""
 
 from __future__ import annotations
 
@@ -17,8 +17,7 @@ from ..config.schema import MapConfig, Resolution
 from ..vision.color import hsv_mask, to_hsv
 from ..vision.geometry import crop
 from .mapfile import MapFile, resolve_map_path
-
-from .targets import COLOR_TARGETS, ROI_TARGETS
+from .targets import COLOR_TARGETS, ROI_TARGETS, TEMPLATE_THRESHOLD_FIELD
 
 
 def _open_map(args: argparse.Namespace) -> MapFile:
@@ -224,4 +223,197 @@ def cmd_record(args: argparse.Namespace) -> int:
     finally:
         live.close()
     print(f"saved {n} frames to {out}")
+    return 0
+
+
+# --------------------------------------------------------------------------
+# template
+# --------------------------------------------------------------------------
+
+def suggest_single_threshold(scores: list[float]) -> float | None:
+    """For one-per-screen templates (name tag, dialogs): midway between the true
+    hit (best score) and the strongest other match, clamped to a sane range."""
+    if not scores:
+        return None
+    best = scores[0]
+    second = scores[1] if len(scores) > 1 else 0.0
+    return round(min(0.95, max(0.6, (best + second) / 2)), 2)
+
+
+def cmd_template(args: argparse.Namespace) -> int:
+    from ..perception.match import best_scores
+    from ..perception.templates import ALERT_KINDS, Template, check_template
+    from .ui import select_rect
+
+    mf = _open_map(args)
+    cfg = mf.model()
+    name = args.name
+    if args.kind == "alerts" and not name.lower().startswith(ALERT_KINDS):
+        print(f"note: alert templates should start with one of {', '.join(ALERT_KINDS)} "
+              f"(e.g. death_dialog) so the watchdog knows what they mean")
+    out = mf.path.parent / "templates" / args.kind / f"{name}.png"
+    if out.exists() and not args.force:
+        raise CaptureError(f"{out} already exists; pick another --name or pass --force")
+
+    image = _grab_one(args, cfg)
+    check_resolution(cfg, (image.shape[1], image.shape[0]))
+    rect = select_rect(image, f"{args.kind}: {name}")
+    if rect is None:
+        print("cancelled")
+        return 0
+    sprite = np.ascontiguousarray(crop(image, rect))
+    check_template(sprite, out)
+    save_image(out, sprite)
+    print(f"saved {args.kind} template {out} ({rect.w}x{rect.h})")
+
+    # Score the new template against the same frame to help pick a threshold.
+    det = cfg.detection
+    region = cfg.rois.play_area if args.kind != "alerts" else None
+    search = crop(image, region) if region is not None else image
+    scale = det.alert_scale if args.kind == "alerts" else det.match_scale
+    scores = best_scores(search, Template(name, args.kind, sprite), scale, n=8)
+    field = TEMPLATE_THRESHOLD_FIELD[args.kind]
+    current = getattr(det, field)
+    print(f"top match scores in this frame: {', '.join(f'{v:.2f}' for v in scores)}")
+    print(f"current detection.{field} = {current:.2f} -> "
+          f"{sum(v >= current for v in scores)} hit(s) in this frame")
+    if args.kind in ("player", "alerts"):
+        sug = suggest_single_threshold(scores)
+        print(f"suggested detection.{field}: {sug:.2f} (only one should be on screen)")
+        if args.set_threshold and sug is not None:
+            mf.set(("detection", field), sug)
+            mf.save()
+            print(f"wrote detection.{field} = {sug:.2f}")
+    else:
+        print("count how many of these are real (several monsters/drops may be on screen), "
+              f"then tune detection.{field} with 'mapbot calibrate check'")
+        if args.kind == "monsters":
+            print("tip: capture 2-3 templates per monster (different animation frames); "
+                  "mirrored copies are added automatically")
+    return 0
+
+
+# --------------------------------------------------------------------------
+# bounds
+# --------------------------------------------------------------------------
+
+def cmd_bounds(args: argparse.Namespace) -> int:
+    from ..capture.grabber import DirectorySource
+    from ..config.schema import PatrolBounds
+    from ..perception.detectors import find_player_dot
+
+    mf = _open_map(args)
+    cfg = mf.model()
+    if cfg.rois.minimap is None or cfg.colors.player_dot is None:
+        raise CaptureError(
+            f"set the minimap ROI and player_dot color first "
+            f"('mapbot calibrate roi' / 'colors' --map {args.map})"
+        )
+    mm, color = cfg.rois.minimap, cfg.colors.player_dot
+
+    if args.frames:
+        src = DirectorySource(args.frames)
+        xs, total = [], 0
+        while (f := src.read()) is not None:
+            total += 1
+            check_resolution(cfg, f.size)
+            dot = find_player_dot(f.image, mm, color)
+            if dot is not None:
+                xs.append(dot[0])
+        if len(xs) < 2:
+            raise CaptureError(f"the player dot was found in only {len(xs)} of {total} frames; "
+                               f"check the player_dot color with 'calibrate check'")
+        left, right = int(min(xs)) + args.inset, int(max(xs)) - args.inset
+        print(f"dot found in {len(xs)}/{total} frames; x range {min(xs):.0f}..{max(xs):.0f}, "
+              f"inset {args.inset}")
+    else:
+        if args.set is None:
+            raise CaptureError("pass --set left / --set right (standing at that edge), or --frames DIR")
+        image = _grab_one(args, cfg)
+        check_resolution(cfg, (image.shape[1], image.shape[0]))
+        dot = find_player_dot(image, mm, color)
+        if dot is None:
+            raise CaptureError("the player dot was not found on the minimap in this frame")
+        x = int(round(dot[0]))
+        current = cfg.patrol or PatrolBounds(left_x=0, right_x=mm.w - 1)
+        left, right = current.left_x, current.right_x
+        if args.set == "left":
+            left = x + args.inset
+        else:
+            right = x - args.inset
+        print(f"dot at minimap x={x}; {args.set} edge -> {left if args.set == 'left' else right}")
+        if cfg.patrol is None:
+            other = "right" if args.set == "left" else "left"
+            print(f"now stand at the {other} edge and run with --set {other}")
+
+    if left >= right:
+        raise CaptureError(f"left ({left}) must be < right ({right}); patrol area too narrow "
+                           f"for inset {args.inset}?")
+    mf.set(("patrol",), PatrolBounds(left_x=left, right_x=right))
+    mf.save()
+    print(f"saved patrol bounds left_x={left} right_x={right} to {mf.path}")
+    return 0
+
+
+# --------------------------------------------------------------------------
+# check (live / folder preview, no input)
+# --------------------------------------------------------------------------
+
+def cmd_check(args: argparse.Namespace) -> int:
+    import cv2
+
+    from ..capture.grabber import DirectorySource
+    from ..debug.annotate import annotate
+    from ..perception.perceiver import Perceiver
+    from .ui import _check_gui, fit_scale
+
+    mf = _open_map(args)
+    cfg = mf.model()
+    perceiver = Perceiver.for_map(cfg, mf.path, strict=False)
+    for prob in perceiver.problems:
+        print(f"  ! {prob}")
+    _check_gui()
+
+    live = None
+    if args.frames:
+        source = DirectorySource(args.frames)
+        delay = max(1, int(1000 / args.fps))
+    else:
+        live = open_live(_title(args, cfg), args.backend, cfg)
+        source, delay = live.source, 1
+    title = "mapbot check  [q=quit, space=pause, s=save]  (no input is sent)"
+    paused, frame, shown, t_last = False, None, None, time.monotonic()
+    print("previewing; no keys are sent to the game")
+    try:
+        while True:
+            if not paused or frame is None:
+                frame = source.read()
+                if frame is None:
+                    print("end of frames")
+                    break
+                check_resolution(cfg, frame.size)
+                p = perceiver.perceive(frame.image, frame.t, frame.source)
+                now = time.monotonic()
+                fps = 1.0 / max(1e-6, now - t_last)
+                t_last = now
+                shown = annotate(frame.image, p, cfg, extra_lines=[f"{fps:.1f} FPS  {frame.source}"])
+                s = fit_scale(shown.shape[1], shown.shape[0])
+                if s < 1:
+                    shown = cv2.resize(shown, None, fx=s, fy=s, interpolation=cv2.INTER_AREA)
+            cv2.imshow(title, shown)
+            k = cv2.waitKey(delay) & 0xFF
+            if k in (ord("q"), 27):
+                break
+            if k == ord(" "):
+                paused = not paused
+            if k == ord("s"):
+                out = mf.path.parent / f"check_{datetime.now():%Y%m%d_%H%M%S}.png"
+                save_image(out, frame.image)
+                print(f"saved frame -> {out}")
+            if cv2.getWindowProperty(title, cv2.WND_PROP_VISIBLE) < 1:
+                break
+    finally:
+        cv2.destroyAllWindows()
+        if live:
+            live.close()
     return 0

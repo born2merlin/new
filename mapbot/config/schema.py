@@ -324,11 +324,30 @@ class Detection(_Strict):
     loot_threshold: Fraction = 0.8
     nametag_threshold: Fraction = 0.8
     alert_threshold: Fraction = 0.85
+    # Downscale factor applied before template matching (0.5 = half size, ~4x faster).
+    match_scale: Annotated[float, Field(gt=0.1, le=1.0)] = 0.5
+    # Overlapping hits above this IoU are merged (non-max suppression).
+    nms_iou: Fraction = 0.3
+    # Color-mode monster blobs outside this pixel-area range are ignored.
+    monster_min_area: Annotated[int, Field(ge=1)] = 150
+    monster_max_area: Annotated[int, Field(ge=1)] = 40000
+    # A bar column counts as filled when this share of its pixels match the fill color.
+    bar_column_fill: Fraction = 0.5
+    # Player anchor = name-tag center moved up by this many px (roughly to the body).
+    nametag_to_body_px: int = 35
+    # Search for the name tag within this many px of where it was last seen
+    # (full play-area search when lost). Big speed-up at 1080p.
+    nametag_track_px: Annotated[int, Field(ge=0)] = 250
+    # Alert dialogs are large, so match them at a lower scale and not every frame.
+    alert_scale: Annotated[float, Field(gt=0.05, le=1.0)] = 0.25
+    alert_every_n: Annotated[int, Field(ge=1)] = 5
 
     @model_validator(mode="after")
     def _color_needs_range(self) -> "Detection":
         if self.monster_detector is MonsterDetector.color and self.monster_color is None:
             raise ValueError("monster_detector is 'color' but monster_color is not set")
+        if self.monster_min_area >= self.monster_max_area:
+            raise ValueError("monster_min_area must be < monster_max_area")
         return self
 
 
@@ -383,3 +402,22 @@ class BotSettings(_Strict):
     hotkeys: Hotkeys = Hotkeys()
     watchdog: Watchdog = Watchdog()
     log_dir: str = "logs"
+
+
+# --------------------------------------------------------------------------
+# Fixture labels (tests/fixtures/local/<map>/labels.json)
+# --------------------------------------------------------------------------
+
+class FrameLabel(_Strict):
+    """Expected perception for one saved frame. Omitted fields are not checked."""
+
+    player_dot: tuple[int, int] | None = None   # minimap-relative x, y
+    hp: Fraction | None = None
+    mp: Fraction | None = None
+    monsters: Annotated[int, Field(ge=0)] | None = None
+    alerts: list[str] | None = None
+
+
+class LabelSet(_Strict):
+    map: str = Field(description="map id or path to map.yaml the frames belong to")
+    frames: dict[str, FrameLabel]

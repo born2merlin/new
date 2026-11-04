@@ -42,3 +42,12 @@ detection:
   loot_threshold: 0.8
   nametag_threshold: 0.8
   alert_threshold: 0.85
+  match_scale: 0.5                 # downscale before template matching (1.0 = full detail)
+  nms_iou: 0.3
+  monster_min_area: 150            # color mode only
+  monster_max_area: 40000
+  bar_column_fill: 0.5
+  nametag_to_body_px: 35           # player anchor = name tag center moved up this much
+  nametag_track_px: 250            # search near the last name-tag position first
+  alert_scale: 0.25                # alerts (death/rune/dialog) are big: match small...
+  alert_every_n: 5                 # ...and only every Nth frame

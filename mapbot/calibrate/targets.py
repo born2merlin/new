@@ -13,3 +13,13 @@ COLOR_TARGETS = {
     "hp_fill": ("hp_bar", "Click across the HP fill (calibrate at FULL HP)"),
     "mp_fill": ("mp_bar", "Click across the MP fill (calibrate at FULL MP)"),
 }
+
+TEMPLATE_KINDS = ("monsters", "loot", "player", "alerts")
+
+# Which detection threshold each template kind uses.
+TEMPLATE_THRESHOLD_FIELD = {
+    "monsters": "monster_threshold",
+    "loot": "loot_threshold",
+    "player": "nametag_threshold",
+    "alerts": "alert_threshold",
+}

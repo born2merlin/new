@@ -8,3 +8,6 @@ frames/
 .pytest_cache/
 maps/*/reference.png
 maps/*/calib_roi.png
+tests/fixtures/local/
+maps/*/check_*.png
+*_inspect/
